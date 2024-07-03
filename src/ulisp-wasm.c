@@ -18,6 +18,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
@@ -6454,8 +6455,16 @@ object *eval_cstr(char *input){
   return eval(input_form,NIL);
 }
 
+int decode(int syn, int pfu){
+  char output[100];
+  sprintf(output, "(decode %u %u)",syn,pfu);
+  return checkinteger(eval_cstr(output));
+}
+
 int init(){
   setup();
   eval_cstr("(defun square (x) (* x x))");
-  return checkinteger(eval_cstr("(square 3)"));
+  eval_cstr("(defun decode (a b) (+ a b))");
+  return decode(2,2);
 }
+
