@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "program.h"
 
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
@@ -6461,11 +6462,6 @@ int decode(int syn, int pfu){
   return checkinteger(eval_cstr(output));
 }
 
-char *ulisp_declarations[] = {
-  "(defun square (x) (* x x))",
-  "(defun decode (a b) (+ a b))",
-  "(defun decode2 (a b) (* a b))"
-};
 
 void init(){
   setup();
