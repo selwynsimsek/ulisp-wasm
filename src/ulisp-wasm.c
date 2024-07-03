@@ -6457,14 +6457,20 @@ object *eval_cstr(char *input){
 
 int decode(int syn, int pfu){
   char output[100];
-  sprintf(output, "(decode %u %u)",syn,pfu);
+  sprintf(output, "(decode2 %u %u)",syn,pfu);
   return checkinteger(eval_cstr(output));
 }
 
-int init(){
+char *ulisp_declarations[] = {
+  "(defun square (x) (* x x))",
+  "(defun decode (a b) (+ a b))",
+  "(defun decode2 (a b) (* a b))"
+};
+
+void init(){
   setup();
-  eval_cstr("(defun square (x) (* x x))");
-  eval_cstr("(defun decode (a b) (+ a b))");
-  return decode(2,2);
+  for(int i=0;i<(sizeof(ulisp_declarations)/sizeof(ulisp_declarations[0]));i++){
+    eval_cstr(ulisp_declarations[i]);
+  }
 }
 
