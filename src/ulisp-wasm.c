@@ -15,11 +15,19 @@
 // need to do typedefs ourselves; can't rely on <limits.h>
 
 typedef unsigned char uint8_t;
+typedef char int8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
 typedef long size_t;
 typedef uint32_t uintptr_t;
+typedef int intptr_t;
 typedef uint8_t bool;
+typedef uint8_t boolean;
+typedef long long int64_t;
+
+
+#define INT_MIN -128
+#define INT_MAX 127
 
 struct jmp_buf { };
 
@@ -204,6 +212,29 @@ typedef object *(*fn_ptr_type)(object *, object *);
 typedef void (*mapfun_t)(object *, object **);
 typedef int (*intfn_ptr_type)(int w, int x, int y, int z);
 
+object *lispstring(char *s);
+uint8_t nthchar (object *string, int n);
+int stringcompare(object *args, bool lt, bool gt, bool eq);
+void pserial(char c);
+char *cstring (object *form, char *buffer, int buflen);
+object *findpair(object *var, object *env);
+int gserial();
+object *tf_progn(object *args, object *env);
+int glibrary();
+object *fn_princtostring(object *args, object *env);
+unsigned int tablesize(int n);
+uint8_t getminmax(builtin_t name);
+void checkminmax(builtin_t name, int nargs);
+char *lookupdoc(builtin_t name);
+bool findsubstring(char *part, builtin_t name);
+void testescape();
+bool colonp(symbol_t name);
+bool keywordp(object *obj);
+object *eval(object *form, object *env);
+#define RAND_MAX 32767
+#define PROGMEM 
+
+
 typedef const struct {
   const char *string;
   fn_ptr_type fptr;
@@ -214,6 +245,23 @@ typedef const struct {
 typedef int (*gfun_t)();
 typedef void (*pfun_t)(char);
 typedef int PinMode;
+
+void prin1object(object *form, pfun_t pfun);
+void printsymbol(object *form, pfun_t pfun);
+void printobject(object *form, pfun_t pfun);
+void printstring(object *form, pfun_t pfun);
+void plispstr(symbol_t name, pfun_t pfun);
+void psymbol(symbol_t name, pfun_t pfun);
+void pbuiltin(builtin_t name, pfun_t pfun);
+void pint(int i, pfun_t pfun);
+void pintbase(uint32_t i, uint8_t base, pfun_t pfun);
+void printhex4(int i, pfun_t pfun);
+void pln(pfun_t pfun);
+void pfl(pfun_t pfun);
+void ulisperror();
+void repl(object *env);
+object *read(gfun_t gfun);
+
 
 enum builtins: builtin_t { NIL, TEE, NOTHING, OPTIONAL, FEATURES, INITIALELEMENT, ELEMENTTYPE, TEST, BIT, AMPREST,
 LAMBDA, LET, LETSTAR, CLOSURE, PSTAR, QUOTE, DEFUN, DEFVAR, DEFCODE, EQ, CAR, FIRST, CDR, REST, NTH, AREF,
@@ -262,22 +310,17 @@ inline builtin_t untwist (symbol_t x) {
 
 // Error handling
 
-void errorsub (symbol_t fname, const char *string) {
-  pfl(pserial); pfstring("Error: ", pserial);
-  if (fname != sym(NIL)) {
-    pserial('\'');
-    psymbol(fname, pserial);
-    pserial('\''); pserial(' ');
-  }
-  pfstring(string, pserial);
+symbol_t sym (builtin_t x) {
+  return twist(x + BUILTINS);
 }
 
-void errorend () { GCStack = NULL; longjmp(*handler, 1); }
+void errorend () { GCStack = NULL; //longjmp(*handler, 1);
+}
 
 void errorsym (symbol_t fname, const char *string, object *symbol) {
   if (!tstflag(MUFFLEERRORS)) {
     errorsub(fname, string);
-    pserial(':'); pserial(' ');
+    qpserial(':'); pserial(' ');
     printobject(symbol, pserial);
     pln(pserial);
   }
@@ -287,7 +330,7 @@ void errorsym (symbol_t fname, const char *string, object *symbol) {
 void errorsym2 (symbol_t fname, const char *string) {
   if (!tstflag(MUFFLEERRORS)) {
     errorsub(fname, string);
-    pln(pserial);
+    //pln(pserial);
   }
   errorend();
 }
@@ -301,12 +344,12 @@ void error2 (const char *string) {
 }
 
 void formaterr (object *formatstr, const char *string, uint8_t p) {
-  pln(pserial); indent(4, ' ', pserial); printstring(formatstr, pserial); pln(pserial);
-  indent(p+5, ' ', pserial); pserial('^');
-  error2(string);
-  pln(pserial);
+  //pln(pserial); indent(4, ' ', pserial); printstring(formatstr, pserial); pln(pserial);
+  //indent(p+5, ' ', pserial); pserial('^');
+  //error2(string);
+  //pln(pserial);
   GCStack = NULL;
-  longjmp(*handler, 1);
+  //longjmp(*handler, 1);
 }
 
 // Save space as these are used multiple times
@@ -398,10 +441,6 @@ object *symbol (symbol_t name) {
   return ptr;
 }
 
-inline object *bsymbol (builtin_t name) {
-  return intern(twist(name+BUILTINS));
-}
-
 object *codehead (int entry) {
   object *ptr = myalloc();
   ptr->type = CODE;
@@ -415,6 +454,10 @@ object *intern (symbol_t name) {
     if (obj->type == SYMBOL && obj->name == name) return obj;
   }
   return symbol(name);
+}
+
+inline object *bsymbol (builtin_t name) {
+  return intern(twist(name+BUILTINS));
 }
 
 bool eqsymbols (object *obj, char *buffer) {
@@ -774,9 +817,6 @@ builtin_t builtin (symbol_t name) {
   return (builtin_t)(untwist(name) - BUILTINS);
 }
 
-symbol_t sym (builtin_t x) {
-  return twist(x + BUILTINS);
-}
 
 int8_t toradix40 (char ch) {
   if (ch == 0) return 0;
@@ -1199,12 +1239,6 @@ object *startstring () {
   return string;
 }
 
-object *princtostring (object *arg) {
-  object *obj = startstring();
-  prin1object(arg, pstr);
-  return obj;
-}
-
 void buildstring (char ch, object** tail) {
   object* cell;
   if (cdr(*tail) == NULL) {
@@ -1220,6 +1254,17 @@ void buildstring (char ch, object** tail) {
   }
   car(cell) = NULL; cell->chars = ch<<24; *tail = cell;
 }
+void pstr (char c) {
+  buildstring(c, &GlobalStringTail);
+}
+
+
+object *princtostring (object *arg) {
+  object *obj = startstring();
+  prin1object(arg, pstr);
+  return obj;
+}
+
 
 object *copystring (object *arg) {
   object *obj = newstring();
@@ -1290,10 +1335,6 @@ int gstr () {
   char c = nthchar(GlobalString, GlobalStringIndex++);
   if (c != 0) return c;
   return '\n'; // -1?
-}
-
-void pstr (char c) {
-  buildstring(c, &GlobalStringTail);
 }
 
 object *lispstring (char *s) {
@@ -1738,46 +1779,47 @@ object *dobody (object *args, object *env, bool star) {
 
 void I2Cinit (bool enablePullup) {
   (void) enablePullup;
-  Wire.begin();
+  //Wire.begin();
 }
 
 int I2Cread () {
-  return Wire.read();
+  return 0;// Wire.read();
 }
 
 void I2Cwrite (uint8_t data) {
-  Wire.write(data);
+  //Wire.write(data);
 }
 
 bool I2Cstart (uint8_t address, uint8_t read) {
  int ok = true;
  if (read == 0) {
-   Wire.beginTransmission(address);
-   ok = (Wire.endTransmission(true) == 0);
-   Wire.beginTransmission(address);
+   //Wire.beginTransmission(address);
+   //ok = (Wire.endTransmission(true) == 0);
+   //Wire.beginTransmission(address);
  }
- else Wire.requestFrom(address, I2Ccount);
+ //else Wire.requestFrom(address, I2Ccount);
  return ok;
 }
 
 bool I2Crestart (uint8_t address, uint8_t read) {
-  int error = (Wire.endTransmission(false) != 0);
-  if (read == 0) Wire.beginTransmission(address);
-  else Wire.requestFrom(address, I2Ccount);
-  return error ? false : true;
+  //int error = (Wire.endTransmission(false) != 0);
+  //if (read == 0) Wire.beginTransmission(address);
+  //else Wire.requestFrom(address, I2Ccount);
+  //return error ? false : true;
+  return false;
 }
 
 void I2Cstop (uint8_t read) {
-  if (read == 0) Wire.endTransmission(); // Check for error?
+  //if (read == 0) Wire.endTransmission(); // Check for error?
 }
 
 // Streams
 
-inline int spiread () { return SPI.transfer(0); }
+inline int spiread () { return 0;} //SPI.transfer(0); }
 #if defined(BOARD_SIPEED_MAIX_DUINO)
-inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
-inline int serial2read () { while (!Serial2.available()) testescape(); return Serial2.read(); }
-inline int serial3read () { while (!Serial3.available()) testescape(); return Serial3.read(); }
+inline int serial1read () { return 0;} //while (!Serial1.available()) testescape(); return Serial1.read(); }
+inline int serial2read () { return 0;} // while (!Serial2.available()) testescape(); return Serial2.read(); }
+inline int serial3read () { return 0;} //while (!Serial3.available()) testescape(); return Serial3.read(); }
 #endif
 #if defined(sdcardsupport)
 File SDpfile, SDgfile;
@@ -1835,11 +1877,11 @@ gfun_t gstreamfun (object *args) {
   return gfun;
 }
 
-inline void spiwrite (char c) { SPI.transfer(c); }
+inline void spiwrite (char c) { /*SPI.transfer(c);*/ }
 #if defined(BOARD_SIPEED_MAIX_DUINO)
-inline void serial1write (char c) { Serial1.write(c); }
-inline void serial2write (char c) { Serial2.write(c); }
-inline void serial3write (char c) { Serial3.write(c); }
+inline void serial1write (char c) { }// Serial1.write(c); }
+inline void serial2write (char c) { }//Serial2.write(c); }
+inline void serial3write (char c) { }//Serial3.write(c); }
 #endif
 #if defined(sdcardsupport)
 inline void SDwrite (char c) { SDpfile.write(c); }
@@ -2032,7 +2074,7 @@ object *call (int entry, int nargs, object *args, object *env) {
     else param[i] = (uintptr_t)arg;
     args = cdr(args);
   }
-  asm("fence.i");
+  //asm("fence.i");
   int w = ((intfn_ptr_type)&MyCode[entry])(param[0], param[1], param[2], param[3]);
   return number(w);
 }
@@ -2476,43 +2518,7 @@ object *sp_withi2c (object *args, object *env) {
 }
 
 object *sp_withspi (object *args, object *env) {
-  object *params = checkarguments(args, 2, 6);
-  object *var = first(params);
-  params = cdr(params);
-  if (params == NULL) error2(nostream);
-  int pin = checkinteger(eval(car(params), env));
-  pinMode(pin, OUTPUT);
-  digitalWrite(pin, HIGH);
-  params = cdr(params);
-  int clock = 4000, mode = SPI_MODE0, address = 0; // Defaults
-  BitOrder bitorder = MSBFIRST;
-  if (params != NULL) {
-    clock = checkinteger(eval(car(params), env));
-    params = cdr(params);
-    if (params != NULL) {
-      bitorder = (checkinteger(eval(car(params), env)) == 0) ? LSBFIRST : MSBFIRST;
-      params = cdr(params);
-      if (params != NULL) {
-        int modeval = checkinteger(eval(car(params), env));
-        mode = (modeval == 3) ? SPI_MODE3 : (modeval == 2) ? SPI_MODE2 : (modeval == 1) ? SPI_MODE1 : SPI_MODE0;
-        params = cdr(params);
-        if (params != NULL) {
-          address = checkinteger(eval(car(params), env));
-        }
-      }
-    }
-  }
-  object *pair = cons(var, stream(SPISTREAM, pin + 128*address));
-  push(pair,env);
-  SPIClass *spiClass = &SPI;
-  (*spiClass).begin();
-  (*spiClass).beginTransaction(SPISettings(((unsigned long)clock * 1000), bitorder, mode));
-  digitalWrite(pin, LOW);
-  object *forms = cdr(args);
-  object *result = eval(tf_progn(forms,env), env);
-  digitalWrite(pin, HIGH);
-  (*spiClass).endTransaction();
-  return result;
+  return nil; // whole thing stubbed out
 }
 
 object *sp_withsdcard (object *args, object *env) {
@@ -3928,21 +3934,7 @@ object *fn_cls (object *args, object *env) {
 // Arduino procedures
 
 object *fn_pinmode (object *args, object *env) {
-  (void) env; int pin;
-  object *arg = first(args);
-  if (keywordp(arg)) pin = checkkeyword(arg);
-  else pin = checkinteger(first(args));
-  int pm = INPUT;
-  arg = second(args);
-  if (keywordp(arg)) pm = checkkeyword(arg);
-  else if (integerp(arg)) {
-    int mode = arg->integer;
-    if (mode == 1) pm = OUTPUT; else if (mode == 2) pm = INPUT_PULLUP;
-    #if defined(INPUT_PULLDOWN)
-    else if (mode == 4) pm = INPUT_PULLDOWN;
-    #endif
-  } else if (arg != nil) pm = OUTPUT;
-  pinMode(pin, pm);
+  // stubbed out
   return nil;
 }
 
@@ -3956,18 +3948,7 @@ object *fn_digitalread (object *args, object *env) {
 }
 
 object *fn_digitalwrite (object *args, object *env) {
-  (void) env;
-  int pin;
-  object *arg = first(args);
-  if (keywordp(arg)) pin = checkkeyword(arg);
-  else pin = checkinteger(arg);
-  arg = second(args);
-  int mode;
-  if (keywordp(arg)) mode = checkkeyword(arg);
-  else if (integerp(arg)) mode = arg->integer ? HIGH : LOW;
-  else mode = (arg != nil) ? HIGH : LOW;
-  digitalWrite(pin, mode);
-  return arg;
+  return nil;
 }
 
 object *fn_analogread (object *args, object *env) {
@@ -4261,14 +4242,14 @@ object *fn_aproposlist (object *args, object *env) {
 object *sp_unwindprotect (object *args, object *env) {
   if (args == NULL) error2(toofewargs);
   object *current_GCStack = GCStack;
-  jmp_buf dynamic_handler;
-  jmp_buf *previous_handler = handler;
+  struct jmp_buf dynamic_handler;
+  struct jmp_buf *previous_handler = handler;
   handler = &dynamic_handler;
   object *protected_form = first(args);
   object *result;
 
   bool signaled = false;
-  if (!setjmp(dynamic_handler)) {
+  if (!setjmp(&dynamic_handler)) {
     result = eval(protected_form, env);
   } else {
     GCStack = current_GCStack;
@@ -4285,20 +4266,21 @@ object *sp_unwindprotect (object *args, object *env) {
 
   if (!signaled) return result;
   GCStack = NULL;
-  longjmp(*handler, 1);
+  longjmp(handler, 1);
+  return nil;
 }
 
 object *sp_ignoreerrors (object *args, object *env) {
   object *current_GCStack = GCStack;
-  jmp_buf dynamic_handler;
-  jmp_buf *previous_handler = handler;
+  struct jmp_buf dynamic_handler;
+  struct jmp_buf *previous_handler = handler;
   handler = &dynamic_handler;
   object *result = nil;
 
   bool muffled = tstflag(MUFFLEERRORS);
   setflag(MUFFLEERRORS);
   bool signaled = false;
-  if (!setjmp(dynamic_handler)) {
+  if (!setjmp(&dynamic_handler)) {
     while (args != NULL) {
       result = eval(car(args), env);
       if (tstflag(RETURNFLAG)) break;
@@ -4325,7 +4307,8 @@ object *sp_error (object *args, object *env) {
     pln(pserial);
   }
   GCStack = NULL;
-  longjmp(*handler, 1);
+  longjmp(handler, 1);
+  return nil;
 }
 
 // Graphics functions
@@ -5584,13 +5567,13 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string229, fn_fillscreen, 0201, doc229 },
   { string230, fn_setrotation, 0211, doc230 },
   { string231, fn_invertdisplay, 0211, doc231 },
-  { string232, (fn_ptr_type)LED_BUILTIN, 0, NULL },
-  { string233, (fn_ptr_type)HIGH, DIGITALWRITE, NULL },
-  { string234, (fn_ptr_type)LOW, DIGITALWRITE, NULL },
-  { string235, (fn_ptr_type)INPUT, PINMODE, NULL },
-  { string236, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
-  { string237, (fn_ptr_type)INPUT_PULLDOWN, PINMODE, NULL },
-  { string238, (fn_ptr_type)OUTPUT, PINMODE, NULL },
+  //{ string232, (fn_ptr_type)LED_BUILTIN, 0, NULL },
+  //{ string233, (fn_ptr_type)HIGH, DIGITALWRITE, NULL },
+  //{ string234, (fn_ptr_type)LOW, DIGITALWRITE, NULL },
+  //{ string235, (fn_ptr_type)INPUT, PINMODE, NULL },
+  //{ string236, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
+  //{ string237, (fn_ptr_type)INPUT_PULLDOWN, PINMODE, NULL },
+  //{ string238, (fn_ptr_type)OUTPUT, PINMODE, NULL },
 };
 
 #if !defined(extensions)
@@ -5652,7 +5635,7 @@ bool findsubstring (char *part, builtin_t name) {
 }
 
 void testescape () {
-  if (Serial.available() && Serial.read() == '~') error2("escape!");
+  //if (Serial.available() && Serial.read() == '~') error2("escape!");
 }
 
 bool colonp (symbol_t name) {
@@ -5676,12 +5659,12 @@ bool keywordp (object *obj) {
 char end[0];
 
 object *eval (object *form, object *env) {
-  register int *sp asm ("sp");
+  //register int *sp asm ("sp");
   int TC=0;
   EVAL:
   // Enough space?
   // Serial.println((uintptr_t)sp - (uintptr_t)end);
-  if ((uintptr_t)sp - (uintptr_t)end < STACKDIFF) { Context = NIL; error2("stack overflow"); }
+  //if ((uintptr_t)sp - (uintptr_t)end < STACKDIFF) { Context = NIL; error2("stack overflow"); }
   if (Freespace <= WORKSPACESIZE>>4) gc(form, env);
   // Escape
   if (tstflag(ESCAPE)) { clrflag(ESCAPE); error2("escape!");}
@@ -5849,9 +5832,9 @@ object *eval (object *form, object *env) {
 // Print functions
 
 void pserial (char c) {
-  LastPrint = c;
-  if (c == '\n') Serial.write('\r');
-  Serial.write(c);
+  //LastPrint = c;
+  //if (c == '\n') Serial.write('\r');
+  //Serial.write(c);
 }
 
 const char ControlCodes[] = "Null\0SOH\0STX\0ETX\0EOT\0ENQ\0ACK\0Bell\0Backspace\0Tab\0Newline\0VT\0"
@@ -6099,15 +6082,15 @@ volatile uint8_t KybdAvailable = 0;
 
 // Parenthesis highlighting
 void esc (int p, char c) {
-  Serial.write('\e'); Serial.write('[');
-  Serial.write((char)('0'+ p/100));
-  Serial.write((char)('0'+ (p/10) % 10));
-  Serial.write((char)('0'+ p % 10));
-  Serial.write(c);
+  //Serial.write('\e'); Serial.write('[');
+  //Serial.write((char)('0'+ p/100));
+  //Serial.write((char)('0'+ (p/10) % 10));
+  //Serial.write((char)('0'+ p % 10));
+  //Serial.write(c);
 }
 
 void hilight (char c) {
-  Serial.write('\e'); Serial.write('['); Serial.write(c); Serial.write('m');
+  // Serial.write('\e'); Serial.write('['); Serial.write(c); Serial.write('m');
 }
 
 void Highlight (int p, int wp, uint8_t invert) {
@@ -6125,11 +6108,11 @@ void Highlight (int p, int wp, uint8_t invert) {
     if (up) esc(up, 'A');
     if (col > targetcol) esc(left, 'D'); else esc(-left, 'C');
     if (invert) hilight('7');
-    Serial.write('('); Serial.write('\b');
+    //Serial.write('('); Serial.write('\b');
     // Go back
     if (up) esc(up, 'B'); // Down
     if (col > targetcol) esc(left, 'C'); else esc(-left, 'D');
-    Serial.write('\b'); Serial.write(')');
+    //Serial.write('\b'); Serial.write(')');
     if (invert) hilight('0');
   }
 }
@@ -6152,15 +6135,15 @@ void processkey (char c) {
   if (c == 8 || c == 0x7f) {     // Backspace key
     if (WritePtr > 0) {
       WritePtr--;
-      Serial.write(8); Serial.write(' '); Serial.write(8);
+      //Serial.write(8); Serial.write(' '); Serial.write(8);
       if (WritePtr) c = KybdBuf[WritePtr-1];
     }
   } else if (c == 9) { // tab or ctrl-I
-    for (int i = 0; i < LastWritePtr; i++) Serial.write(KybdBuf[i]);
+    //for (int i = 0; i < LastWritePtr; i++) Serial.write(KybdBuf[i]);
     WritePtr = LastWritePtr;
   } else if (WritePtr < KybdBufSize) {
     KybdBuf[WritePtr++] = c;
-    Serial.write(c);
+    //Serial.write(c);
   }
 #if defined(vt100)
   // Do new parenthesis highlight
@@ -6198,8 +6181,8 @@ int gserial () {
   return '\n';
 #else
   unsigned long start = millis();
-  while (!Serial.available()) if (millis() - start > 1000) clrflag(NOECHO);
-  char temp = Serial.read();
+ 
+  char temp = 0;//Serial.read();
   if (temp != '\n' && !tstflag(NOECHO)) pserial(temp);
   return temp;
 #endif
@@ -6380,9 +6363,9 @@ void initgfx () {
 
 // Entry point from the Arduino IDE
 void setup () {
-  Serial.begin(9600);
+  //Serial.begin(9600);
   int start = millis();
-  while ((millis() - start) < 5000) { if (Serial) break; }
+  //while ((millis() - start) < 5000) { if (Serial) break; }
   initworkspace();
   initenv();
   initsleep();
@@ -6420,7 +6403,7 @@ void repl (object *env) {
 }
 
 void loop () {
-  if (!setjmp(toplevel_handler)) {
+  if (!setjmp(&toplevel_handler)) {
     #if defined(resetautorun)
     volatile int autorun = 12; // Fudge to keep code size the same
     #else
