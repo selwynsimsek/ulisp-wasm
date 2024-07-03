@@ -167,6 +167,23 @@ Sipeed_ST7789 tft(320, 240, spi_);
 #define startblock(x)      ((x->integer) & 0xFFFF)
 #define endblock(x)        ((x->integer) >> 16 & 0xFFFF)
 
+// turn off math at first
+#define MATH
+
+// stubbing out
+#define PSTR(str_pointer) (str_pointer)
+
+unsigned long millis() { return 0;}
+unsigned long micros() { return 0;}
+void digitalWrite(uint8_t pin, uint8_t val){}
+int digitalRead(uint8_t pin){return 0;}
+int analogRead(uint8_t pin){return 0;}
+void analogReference(uint8_t mode){}
+void analogWrite(uint8_t pin, int val){}
+void analogReadResolution(uint8_t bits){}
+void analogWriteResolution(uint8_t bits){}
+
+
 // Constants
 
 const int TRACEMAX = 3; // Number of traced functions
@@ -300,11 +317,11 @@ volatile uint8_t Flags = 0b00001; // PRINTREADABLY set by default
 object *tee;
 void pfstring (const char *s, pfun_t pfun);
 
-inline symbol_t twist (builtin_t x) {
+symbol_t twist (builtin_t x) {
   return (x<<2) | ((x & 0xC0000000)>>30);
 }
 
-inline builtin_t untwist (symbol_t x) {
+builtin_t untwist (symbol_t x) {
   return (x>>2 & 0x3FFFFFFF) | ((x & 0x03)<<30);
 }
 
@@ -319,8 +336,8 @@ void errorend () { GCStack = NULL; //longjmp(*handler, 1);
 
 void errorsym (symbol_t fname, const char *string, object *symbol) {
   if (!tstflag(MUFFLEERRORS)) {
-    errorsub(fname, string);
-    qpserial(':'); pserial(' ');
+    //errorsub(fname, string);
+    //qpserial(':'); pserial(' ');
     printobject(symbol, pserial);
     pln(pserial);
   }
@@ -329,7 +346,7 @@ void errorsym (symbol_t fname, const char *string, object *symbol) {
 
 void errorsym2 (symbol_t fname, const char *string) {
   if (!tstflag(MUFFLEERRORS)) {
-    errorsub(fname, string);
+    //errorsub(fname, string);
     //pln(pserial);
   }
   errorend();
@@ -456,7 +473,7 @@ object *intern (symbol_t name) {
   return symbol(name);
 }
 
-inline object *bsymbol (builtin_t name) {
+object *bsymbol (builtin_t name) {
   return intern(twist(name+BUILTINS));
 }
 
