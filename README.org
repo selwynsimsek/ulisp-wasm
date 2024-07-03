@@ -1,0 +1,5 @@
+* ulisp-wasm
+This is a port of ulisp to bare metal WASM.
+
+Not even the C standard library may be assumed to be present on the target platform.
+
