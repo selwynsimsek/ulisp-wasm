@@ -51,7 +51,7 @@ const char LispLibrary[] = "(defun square(x) (* x x))";
 // #define printgcs
 // #define sdcardsupport
 // #define gfxsupport
-// #define lisplibrary
+ #define lisplibrary
 #define assemblerlist
 // #define lineeditor
 // #define vt100
@@ -6453,12 +6453,16 @@ int init(){
   setup();
   //object* demo_object = cons(symbol(93),cons(number(2),cons(number(2),NIL)));
   //object* result = eval(demo_object,NIL);
-  object* lisp_int = number(6);
+  object* lisp_int = number(6123);
   object* lisp_int_2 = number(3);
   //object* plus_form = cons(symbol(105),cons(lisp_int,cons(lisp_int_2,bsymbol(NIL))));
   object* plus_form = cons(bsymbol(lookupbuiltin("+")), cons(lisp_int,cons(lisp_int_2,NIL)));
-  object* result = fn_subtract(cons(lisp_int,cons(lisp_int_2,NIL)),NULL);
-  object* result2 = apply(bsymbol(lookupbuiltin("1+")),cons(lisp_int,NIL),NULL);
-  return checkinteger(eval(plus_form,NULL));
-  //return checkinteger(first(result));
+  //object* plus_form=fn_readfromstring(lispstring("3"),NULL);
+  //object* result = fn_subtract(cons(lisp_int,cons(lisp_int_2,NIL)),NULL);
+  object* function = bsymbol(lookupbuiltin("1-"));
+  //object* function=lispstring("1+");
+  //function->type=SYMBOL;
+  object* result2 = apply(function,cons(lisp_int,NIL),NULL);
+  
+  return checkinteger(eval(plus_form,NIL));
 }
