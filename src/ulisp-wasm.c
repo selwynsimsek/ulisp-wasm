@@ -6449,20 +6449,13 @@ void ulisperror () {
   #endif
 }
 
+object *eval_cstr(char *input){
+  object* input_form = fn_readfromstring(cons(lispstring(input),nil),NULL);
+  return eval(input_form,NIL);
+}
+
 int init(){
   setup();
-  //object* demo_object = cons(symbol(93),cons(number(2),cons(number(2),NIL)));
-  //object* result = eval(demo_object,NIL);
-  object* lisp_int = number(6123);
-  object* lisp_int_2 = number(3);
-  //object* plus_form = cons(symbol(105),cons(lisp_int,cons(lisp_int_2,bsymbol(NIL))));
-  //object* plus_form = cons(bsymbol(lookupbuiltin("+")), cons(lisp_int,cons(lisp_int_2,NIL)));
-  object* plus_form=fn_readfromstring(cons(lispstring("(+ 2 4 3)"),nil),NULL);
-  //object* result = fn_subtract(cons(lisp_int,cons(lisp_int_2,NIL)),NULL);
-  //object* function = bsymbol(lookupbuiltin("1-"));
-  //object* function=lispstring("1+");
-  //function->type=SYMBOL;
-  //object* result2 = apply(function,cons(lisp_int,NIL),NULL);
-  //princtostring(eval(plus_form,NIL));
-  return checkinteger(eval(plus_form,NIL));
+  eval_cstr("(defun square (x) (* x x))");
+  return checkinteger(eval_cstr("(square 3)"));
 }
