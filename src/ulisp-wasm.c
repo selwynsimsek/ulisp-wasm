@@ -14,20 +14,18 @@
 
 // need to do typedefs ourselves; can't rely on <limits.h>
 
+#include <math.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
+
 typedef unsigned char uint8_t;
-typedef char int8_t;
 typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-typedef long size_t;
-typedef uint32_t uintptr_t;
-typedef int intptr_t;
 typedef uint8_t bool;
 typedef uint8_t boolean;
 typedef long long int64_t;
 
 
-#define INT_MIN -128
-#define INT_MAX 127
 
 struct jmp_buf { };
 
@@ -46,7 +44,6 @@ const char LispLibrary[] = "(defun square(x) (* x x))";
 
 // Compile options
 #define WASM
-#define NULL 0
 #define true 1
 #define false 0
 // #define resetautorun
@@ -248,9 +245,14 @@ void testescape();
 bool colonp(symbol_t name);
 bool keywordp(object *obj);
 object *eval(object *form, object *env);
-#define RAND_MAX 32767
-#define PROGMEM 
+intptr_t lookupfn(builtin_t name);
+int subwidthlist (object *form, int w);
+void randomSeed(int seed) {}
+char bitRead(long counter,int b) {return 0;}
+void delay(int time) {}
+#define PROGMEM
 
+int listlength (object *list);
 
 typedef const struct {
   const char *string;
@@ -414,7 +416,7 @@ object *myalloc () {
   return temp;
 }
 
-inline void myfree (object *obj) {
+void myfree (object *obj) {
   car(obj) = NULL;
   cdr(obj) = Freelist;
   Freelist = obj;
@@ -1832,11 +1834,11 @@ void I2Cstop (uint8_t read) {
 
 // Streams
 
-inline int spiread () { return 0;} //SPI.transfer(0); }
+ int spiread () { return 0;} //SPI.transfer(0); }
 #if defined(BOARD_SIPEED_MAIX_DUINO)
-inline int serial1read () { return 0;} //while (!Serial1.available()) testescape(); return Serial1.read(); }
-inline int serial2read () { return 0;} // while (!Serial2.available()) testescape(); return Serial2.read(); }
-inline int serial3read () { return 0;} //while (!Serial3.available()) testescape(); return Serial3.read(); }
+int serial1read () { return 0;} //while (!Serial1.available()) testescape(); return Serial1.read(); }
+ int serial2read () { return 0;} // while (!Serial2.available()) testescape(); return Serial2.read(); }
+ int serial3read () { return 0;} //while (!Serial3.available()) testescape(); return Serial3.read(); }
 #endif
 #if defined(sdcardsupport)
 File SDpfile, SDgfile;
@@ -1894,7 +1896,7 @@ gfun_t gstreamfun (object *args) {
   return gfun;
 }
 
-inline void spiwrite (char c) { /*SPI.transfer(c);*/ }
+void spiwrite (char c) { /*SPI.transfer(c);*/ }
 #if defined(BOARD_SIPEED_MAIX_DUINO)
 inline void serial1write (char c) { }// Serial1.write(c); }
 inline void serial2write (char c) { }//Serial2.write(c); }
@@ -3241,7 +3243,7 @@ object *fn_abs (object *args, object *env) {
 object *fn_random (object *args, object *env) {
   (void) env;
   object *arg = first(args);
-  if (integerp(arg)) return number(random(arg->integer));
+  if (integerp(arg)) return number(floor(random()*(arg->integer)));
   else if (floatp(arg)) return makefloat((float)rand()/(float)(RAND_MAX/(arg->single_float)));
   else error(notanumber, arg);
   return nil;
@@ -6447,3 +6449,6 @@ void ulisperror () {
   #endif
 }
 
+int init(){
+  return 42;
+}
