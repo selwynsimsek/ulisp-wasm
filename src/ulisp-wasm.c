@@ -6450,5 +6450,15 @@ void ulisperror () {
 }
 
 int init(){
-  return 42;
+  setup();
+  //object* demo_object = cons(symbol(93),cons(number(2),cons(number(2),NIL)));
+  //object* result = eval(demo_object,NIL);
+  object* lisp_int = number(6);
+  object* lisp_int_2 = number(3);
+  //object* plus_form = cons(symbol(105),cons(lisp_int,cons(lisp_int_2,bsymbol(NIL))));
+  object* plus_form = cons(bsymbol(lookupbuiltin("+")), cons(lisp_int,cons(lisp_int_2,NIL)));
+  object* result = fn_subtract(cons(lisp_int,cons(lisp_int_2,NIL)),NULL);
+  object* result2 = apply(bsymbol(lookupbuiltin("1+")),cons(lisp_int,NIL),NULL);
+  return checkinteger(eval(plus_form,NULL));
+  //return checkinteger(first(result));
 }
