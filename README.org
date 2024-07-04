@@ -1,10 +1,8 @@
 * ulisp-wasm
-This is a port of ulisp to bare metal WASM.
-
-Not even the C standard library may be assumed to be present on the target platform.
+This is a port of ulisp to bare metal WASM - in which all imports are forbidden, and the code is invoked only by the runtime.
 
 * Building
-ulisp-wasm is built in sandbox mode by default (suitable for a situation in which all imports are forbidden).
+ulisp-wasm is built in sandbox mode by default (suitable for a situation in which all imports are indeed forbidden).
 The command
 #+BEGIN_SRC bash
   make run
