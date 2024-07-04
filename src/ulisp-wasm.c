@@ -423,12 +423,14 @@ symbol_t sym (builtin_t x) {
 
 void errorend () { GCStack = NULL; longjmp(handler, 1);
 }
-
-void errorsub (symbol_t fname, void *string) {
+void errorsub (symbol_t fname, char *string) {
   pfl(pserial); pfstring(PSTR("Error: "), pserial);
   if (fname) {
     pserial('\'');
+    // FIXME fix this, looks broken
     //pstring(symbolname(fname), pserial);
+    // doing this instead
+    pint(fname,pserial);
     pserial('\''); pserial(' ');
   }
   pfstring(string, pserial);
@@ -6490,7 +6492,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.6 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.6 for WASM"), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop

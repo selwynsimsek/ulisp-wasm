@@ -1,6 +1,6 @@
 * ulisp-wasm
 This is a port of ulisp to bare metal WASM - in which all imports are forbidden, and the code is invoked only by the runtime.
-
+It is just over 200kB in size.
 * Building
 ulisp-wasm is built in sandbox mode by default (suitable for a situation in which all imports are indeed forbidden).
 The command
@@ -21,4 +21,4 @@ lgtm (looks good to me).
 
 * Future work
 Figure out how to have more than one longjmp.
-
+Make error messages better.
