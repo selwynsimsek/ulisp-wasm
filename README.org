@@ -3,3 +3,12 @@ This is a port of ulisp to bare metal WASM.
 
 Not even the C standard library may be assumed to be present on the target platform.
 
+* Status
+lgtm (looks good to me)
+* Issues/ future work
+At the moment /all/ imports are stubbed out, which means no I/O.
+On arduino, ulisp communicates through a serial interface, allowing for a REPL.
+In future, it would be nice to have an option to build with just enough WASI support to allow for input/output, as in [[https://github.com/kripken/talks/blob/master/jmp.c]].
+This would allow for interactive development and testing with e.g. wasmer, while the deployment platform has all input and output stubbed out.
+The amount of work needed is not excessive: the commented out I/O calls need to be put back in, and calls to the serial interface needs to be adapted to use WASI.
+

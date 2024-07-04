@@ -182,7 +182,6 @@ void analogWrite(uint8_t pin, int val){}
 void analogReadResolution(uint8_t bits){}
 void analogWriteResolution(uint8_t bits){}
 
-
 // Constants
 
 const int TRACEMAX = 3; // Number of traced functions
@@ -238,7 +237,7 @@ int gserial();
 object *tf_progn(object *args, object *env);
 int glibrary();
 object *fn_princtostring(object *args, object *env);
-unsigned int tablesize(int n);
+                                               unsigned int tablesize(int n);
 uint8_t getminmax(builtin_t name);
 void checkminmax(builtin_t name, int nargs);
 char *lookupdoc(builtin_t name);
@@ -6458,15 +6457,15 @@ object *eval_cstr(char *input){
 
 int decode(int syn, int pfu){
   char output[100];
-  sprintf(output, "(decode2 %u %u)",syn,pfu);
+  sprintf(output, "(+ 2 3)",syn,pfu);
   return checkinteger(eval_cstr(output));
 }
 
 
-void init(){
+int init(){
   setup();
   for(int i=0;i<(sizeof(ulisp_declarations)/sizeof(ulisp_declarations[0]));i++){
     eval_cstr(ulisp_declarations[i]);
   }
+  return checkinteger(eval_cstr("(floor (exp 5))"));
 }
-
