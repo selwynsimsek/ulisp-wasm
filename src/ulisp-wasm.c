@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include "program.h"
 
+#include <unistd.h>
+
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef uint8_t bool;
@@ -448,7 +450,7 @@ object *character (uint8_t c) {
 }
 
 object *cons (object *arg1, object *arg2) {
-  printf("consing\n");
+  //printf("consing\n");
   object *ptr = myalloc();
   ptr->car = arg1;
   ptr->cdr = arg2;
@@ -5855,6 +5857,7 @@ object *eval (object *form, object *env) {
 void pserial (char c) {
   LastPrint = c;
   printf("%c",c);
+  fflush(stdout);
   //if (c == '\n') Serial.write('\r');
   //Serial.write(c);
 }
@@ -6203,8 +6206,9 @@ int gserial () {
   return '\n';
 #else
   unsigned long start = millis();
- 
+  
   char temp = 0;//Serial.read();
+  read(0,&temp,1);
   if (temp != '\n' && !tstflag(NOECHO)) pserial(temp);
   return temp;
 #endif
@@ -6480,24 +6484,12 @@ int init(){
 #if SANDBOX == 0
 
 #include <wasi/api.h>
-#include <unistd.h>
 extern void __wasm_call_ctors(void);
 void _start(){
   __wasm_call_ctors();
   //__wasilibc_initialize_environ();
-  puts("def");
+  
   init();
-  char output[100];
-  object* result=eval_cstr("12312");
-  cstring(eval_cstr("(princ-to-string (quote (+ 2 2)))"),output,100);
-  puts(output);
-  puts("from puts");
-  printf("from printf\n");
-  puts("type something:");
-  char buf[256];
-  int n = read(0, buf, 255);
-  printf("read ret=%d\n", n);
-  puts("echoing line:");
-  puts(buf);
+  loop();
 }
 #endif
