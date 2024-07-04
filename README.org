@@ -3,12 +3,26 @@ This is a port of ulisp to bare metal WASM.
 
 Not even the C standard library may be assumed to be present on the target platform.
 
+* Building
+ulisp-wasm is built in sandbox mode by default (suitable for a situation in which all imports are forbidden).
+The command
+#+BEGIN_SRC bash
+  make run
+#+END_SRC
+will build ulisp-wasm and invoke the function 'init()' using wasmer.
+
+Building ulisp-wasm in non-sandboxed mode, however, allows one to communicate with it in the terminal, which may aid in development, testing and debugging.
+
+#+BEGIN_SRC bash
+  make clean && SANDBOX=0 make run
+#+END_SRC
+will build and run the non-sandboxed mode using wasmer.
+
 * Status
-lgtm (looks good to me)
-* Issues/ future work
-At the moment /all/ imports are stubbed out, which means no I/O.
-On arduino, ulisp communicates through a serial interface, allowing for a REPL.
-In future, it would be nice to have an option to build with just enough WASI support to allow for input/output, as in [[https://github.com/kripken/talks/blob/master/jmp.c]].
-This would allow for interactive development and testing with e.g. wasmer, while the deployment platform has all input and output stubbed out.
-The amount of work needed is not excessive: the commented out I/O calls need to be put back in, and calls to the serial interface needs to be adapted to use WASI.
+lgtm (looks good to me).
+
+* Future work
+The non-sandboxed mode would benefit from using kripken's method of simulating non local jumps with asyncify.
+This would allow for proper error handling other than just quitting.
+Of course, error handling is not possible at all in sandboxed mode.
 
