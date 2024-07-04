@@ -16,10 +16,14 @@ build/ulisp-wasm-preopt.wasm: build/ulisp-wasm.o
 ifeq ($(SANDBOX), 0)
 	$(LD) -L${WASI_SDK_PATH}/share/wasi-sysroot/lib/wasm32-wasi -lc --export-all build/ulisp-wasm.o -o build/ulisp-wasm-preopt.wasm
 else
-	$(LD) -L${WASI_SDK_PATH}/share/wasi-sysroot/lib/wasm32-wasi -lc --export-all --no-entry build/ulisp-wasm.o -o build/ulisp-wasm-preopt.wasm
+	$(LD) -L${WASI_SDK_PATH}/share/wasi-sysroot/lib/wasm32-wasi -lc --export-all --allow-undefined --no-entry build/ulisp-wasm.o -o build/ulisp-wasm-preopt.wasm
 endif
 ifeq ($(SANDBOX), 1)
 	$(WASI_STUB) build/ulisp-wasm-preopt.wasm
+else
+	wasm-opt build/ulisp-wasm-preopt.wasm --asyncify -O -o build/ulisp-wasm-preopt-async.wasm -g --pass-arg=asyncify-ignore-imports
+	rm build/ulisp-wasm-preopt.wasm
+	mv build/ulisp-wasm-preopt-async.wasm build/ulisp-wasm-preopt.wasm
 endif
 
 build/ulisp-wasm-opt.wasm: build/ulisp-wasm-preopt.wasm

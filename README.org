@@ -20,7 +20,5 @@ will build and run the non-sandboxed mode using wasmer.
 lgtm (looks good to me).
 
 * Future work
-The non-sandboxed mode would benefit from using kripken's method of simulating non local jumps with asyncify.
-This would allow for proper error handling other than just quitting.
-Of course, error handling is not possible at all in sandboxed mode.
+Figure out how to have more than one longjmp.
 

@@ -30,7 +30,89 @@ typedef uint8_t boolean;
 typedef long long int64_t;
 
 
+#if SANDBOX == 0
+#define WASM_IMPORT(module, base) \
+  __attribute__((__import_module__(#module), __import_name__(#base)))
 
+#define NOINLINE __attribute__((noinline))
+
+// The Asyncify API
+
+void asyncify_start_unwind(void* buf) WASM_IMPORT(asyncify, start_unwind);
+void asyncify_stop_unwind() WASM_IMPORT(asyncify, stop_unwind);
+void asyncify_start_rewind(void* buf) WASM_IMPORT(asyncify, start_rewind);
+void asyncify_stop_rewind() WASM_IMPORT(asyncify, stop_rewind);
+
+//
+// The "upper runtime" using Asyncify: A weird impl of setjmp/longjmp
+//
+
+#define ASYNC_BUF_BUFFER_SIZE 1000
+
+// An Asyncify buffer.
+struct async_buf {
+  void* top; // current top of the used part of the buffer
+  void* end; // fixed end of the buffer
+  void* unwound; // top of the buffer when full (unwound and ready to rewind)
+  char buffer[ASYNC_BUF_BUFFER_SIZE];
+};
+
+NOINLINE
+void async_buf_init(struct async_buf* buf) {
+  buf->top = &buf->buffer[0];
+  buf->end = &buf->buffer[ASYNC_BUF_BUFFER_SIZE];
+}
+
+NOINLINE
+void async_buf_note_unwound(struct async_buf* buf) {
+  buf->unwound = buf->top;
+}
+
+NOINLINE
+void async_buf_rewind(struct async_buf* buf) {
+  buf->top = buf->unwound;
+}
+
+// A setjmp/longjmp buffer.
+struct jmp_buf {
+  // A buffer for the setjmp. Unwound and rewound immediately, and can
+  // be rewound a second time to get to the setjmp from the longjmp.
+  struct async_buf setjmp_buf;
+  // A buffer for the longjmp. Unwound once and never rewound.
+  struct async_buf longjmp_buf;
+  // The value to return.
+  int value;
+  // FIXME We assume this is initialized to zero.
+  int state;
+};
+
+static struct jmp_buf* __active_jmp_buf = NULL;
+
+NOINLINE
+int setjmp(struct jmp_buf* buf) {
+  if (buf->state == 0) {
+    __active_jmp_buf = buf;
+    async_buf_init(&buf->setjmp_buf);
+    asyncify_start_unwind(&buf->setjmp_buf);
+  } else {
+    asyncify_stop_rewind();
+    if (buf->state == 2) {
+      // We returned from the longjmp, all done.
+      __active_jmp_buf = NULL;
+    }
+  }
+  buf->state++;
+  return buf->value;
+}
+
+NOINLINE
+void longjmp(struct jmp_buf* buf, int value) {
+  buf->value = value;
+  async_buf_init(&buf->longjmp_buf);
+  asyncify_start_unwind(&buf->longjmp_buf);
+  // TODO: handle local var changes by updating the setjmp_buf
+}
+#else
 struct jmp_buf { };
 
 int setjmp(struct jmp_buf* buf) {
@@ -41,6 +123,7 @@ int setjmp(struct jmp_buf* buf) {
 void longjmp(struct jmp_buf* buf, int value){
   // do nothing
 }
+#endif
 
 
 // Lisp Library
@@ -268,12 +351,14 @@ typedef int (*gfun_t)();
 typedef void (*pfun_t)(char);
 typedef int PinMode;
 
+void indent(uint8_t spaces, char ch, pfun_t pfun);
 void prin1object(object *form, pfun_t pfun);
 void printsymbol(object *form, pfun_t pfun);
 void printobject(object *form, pfun_t pfun);
 void printstring(object *form, pfun_t pfun);
 void plispstr(symbol_t name, pfun_t pfun);
 void psymbol(symbol_t name, pfun_t pfun);
+void pstring(char *s, pfun_t pfun);
 void pbuiltin(builtin_t name, pfun_t pfun);
 void pint(int i, pfun_t pfun);
 void pintbase(uint32_t i, uint8_t base, pfun_t pfun);
@@ -336,13 +421,22 @@ symbol_t sym (builtin_t x) {
   return twist(x + BUILTINS);
 }
 
-void errorend () { GCStack = NULL; //longjmp(*handler, 1);
+void errorend () { GCStack = NULL; longjmp(handler, 1);
 }
 
+void errorsub (symbol_t fname, void *string) {
+  pfl(pserial); pfstring(PSTR("Error: "), pserial);
+  if (fname) {
+    pserial('\'');
+    //pstring(symbolname(fname), pserial);
+    pserial('\''); pserial(' ');
+  }
+  pfstring(string, pserial);
+}
 void errorsym (symbol_t fname, const char *string, object *symbol) {
   if (!tstflag(MUFFLEERRORS)) {
-    //errorsub(fname, string);
-    //qpserial(':'); pserial(' ');
+    errorsub(fname, string);
+    pserial(':'); pserial(' ');
     printobject(symbol, pserial);
     pln(pserial);
   }
@@ -351,8 +445,8 @@ void errorsym (symbol_t fname, const char *string, object *symbol) {
 
 void errorsym2 (symbol_t fname, const char *string) {
   if (!tstflag(MUFFLEERRORS)) {
-    //errorsub(fname, string);
-    //pln(pserial);
+    errorsub(fname, string);
+    pln(pserial);
   }
   errorend();
 }
@@ -366,12 +460,12 @@ void error2 (const char *string) {
 }
 
 void formaterr (object *formatstr, const char *string, uint8_t p) {
-  //pln(pserial); indent(4, ' ', pserial); printstring(formatstr, pserial); pln(pserial);
-  //indent(p+5, ' ', pserial); pserial('^');
-  //error2(string);
-  //pln(pserial);
+  pln(pserial); indent(4, ' ', pserial); printstring(formatstr, pserial); pln(pserial);
+  indent(p+5, ' ', pserial); pserial('^');
+  error2(string);
+  pln(pserial);
   GCStack = NULL;
-  //longjmp(*handler, 1);
+  longjmp(handler, 1);
 }
 
 // Save space as these are used multiple times
@@ -6490,6 +6584,25 @@ void _start(){
   //__wasilibc_initialize_environ();
   
   init();
-  loop();
+  // This has enough logic to handle one longjmp.
+  while (1) {
+    // Call into the program. This is either the first call, or a resume.
+    loop();
+    if (!__active_jmp_buf) {
+      // The program has run to the end.
+      return;
+    }
+    // The program is still working, just the stack has unwound to here.
+    asyncify_stop_unwind();
+    if (__active_jmp_buf->state == 1) {
+      // Setjmp unwound to here. Prepare to rewind it twice.
+      async_buf_note_unwound(&__active_jmp_buf->setjmp_buf);
+    } else if (__active_jmp_buf->state == 2) {
+      // Longjmp unwound to here. Rewind to the setjmp.
+      async_buf_rewind(&__active_jmp_buf->setjmp_buf);
+    }
+    asyncify_start_rewind(&__active_jmp_buf->setjmp_buf);
+  }
+  //loop();
 }
 #endif
