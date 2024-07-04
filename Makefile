@@ -29,4 +29,8 @@ clean:
 	rm -rf build/*
 
 run: build/ulisp.wasm
-	wasmer run --dir=. -v -e init build/ulisp.wasm
+ifeq ($(SANDBOX), 1)
+	wasmer run -e init build/ulisp.wasm
+else
+	wasmer run build/ulisp.wasm
+endif

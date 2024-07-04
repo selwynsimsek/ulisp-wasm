@@ -280,7 +280,7 @@ void pln(pfun_t pfun);
 void pfl(pfun_t pfun);
 void ulisperror();
 void repl(object *env);
-object *read(gfun_t gfun);
+object *readobject(gfun_t gfun);
 
 
 enum builtins: builtin_t { NIL, TEE, NOTHING, OPTIONAL, FEATURES, INITIALELEMENT, ELEMENTTYPE, TEST, BIT, AMPREST,
@@ -448,6 +448,7 @@ object *character (uint8_t c) {
 }
 
 object *cons (object *arg1, object *arg2) {
+  printf("consing\n");
   object *ptr = myalloc();
   ptr->car = arg1;
   ptr->cdr = arg2;
@@ -2072,9 +2073,9 @@ object *edit (object *fun) {
     char c = gserial();
     if (c == 'q') setflag(EXITEDITOR);
     else if (c == 'b') return fun;
-    else if (c == 'r') fun = read(gserial);
+    else if (c == 'r') fun = readobject(gserial);
     else if (c == '\n') { pfl(pserial); superprint(fun, 0, pserial); pln(pserial); }
-    else if (c == 'c') fun = cons(read(gserial), fun);
+    else if (c == 'c') fun = cons(readobject(gserial), fun);
     else if (atom(fun)) pserial('!');
     else if (c == 'd') fun = cons(car(fun), edit(cdr(fun)));
     else if (c == 'a') fun = cons(edit(car(fun)), cdr(fun));
@@ -3700,7 +3701,7 @@ object *fn_readfromstring (object *args, object *env) {
   object *arg = checkstring(first(args));
   GlobalString = arg;
   GlobalStringIndex = 0;
-  object *val = read(gstr);
+  object *val = readobject(gstr);
   LastChar = 0;
   return val;
 }
@@ -3820,7 +3821,7 @@ object *fn_break (object *args, object *env) {
 object *fn_read (object *args, object *env) {
   (void) env;
   gfun_t gfun = gstreamfun(args);
-  return read(gfun);
+  return readobject(gfun);
 }
 
 object *fn_prin1 (object *args, object *env) {
@@ -4201,7 +4202,7 @@ object *fn_require (object *args, object *env) {
     globals = cdr(globals);
   }
   GlobalStringIndex = 0;
-  object *line = read(glibrary);
+  object *line = readobject(glibrary);
   while (line != NULL) {
     // Is this the definition we want
     symbol_t fname = first(line)->name;
@@ -4209,7 +4210,7 @@ object *fn_require (object *args, object *env) {
       eval(line, env);
       return tee;
     }
-    line = read(glibrary);
+    line = readobject(glibrary);
   }
   return nil;
 }
@@ -4217,13 +4218,13 @@ object *fn_require (object *args, object *env) {
 object *fn_listlibrary (object *args, object *env) {
   (void) args, (void) env;
   GlobalStringIndex = 0;
-  object *line = read(glibrary);
+  object *line = readobject(glibrary);
   while (line != NULL) {
     builtin_t bname = builtin(first(line)->name);
     if (bname == DEFUN || bname == DEFVAR) {
       printsymbol(second(line), pserial); pserial(' ');
     }
-    line = read(glibrary);
+    line = readobject(glibrary);
   }
   return bsymbol(NOTHING);
 }
@@ -5852,7 +5853,8 @@ object *eval (object *form, object *env) {
 // Print functions
 
 void pserial (char c) {
-  //LastPrint = c;
+  LastPrint = c;
+  printf("%c",c);
   //if (c == '\n') Serial.write('\r');
   //Serial.write(c);
 }
@@ -6084,12 +6086,12 @@ int glibrary () {
 
 void loadfromlibrary (object *env) {
   GlobalStringIndex = 0;
-  object *line = read(glibrary);
+  object *line = readobject(glibrary);
   while (line != NULL) {
     protect(line);
     eval(line, env);
     unprotect();
-    line = read(glibrary);
+    line = readobject(glibrary);
   }
 }
 
@@ -6265,13 +6267,13 @@ object *nextitem (gfun_t gfun) {
     else if (ch == '\'') return nextitem(gfun);
     else if (ch == '.') {
       setflag(NOESC);
-      object *result = eval(read(gfun), NULL);
+      object *result = eval(readobject(gfun), NULL);
       clrflag(NOESC);
       return result;
     }
-    else if (ch == '(') { LastChar = ch; return readarray(1, read(gfun)); }
+    else if (ch == '(') { LastChar = ch; return readarray(1, readobject(gfun)); }
     else if (ch == '*') return readbitarray(gfun);
-    else if (ch >= '1' && ch <= '9' && (gfun() & ~0x20) == 'A') return readarray(ch - '0', read(gfun));
+    else if (ch >= '1' && ch <= '9' && (gfun() & ~0x20) == 'A') return readarray(ch - '0', readobject(gfun));
     else error2("illegal character after #");
     ch = gfun();
   }
@@ -6342,9 +6344,9 @@ object *readrest (gfun_t gfun) {
     if (item == (object *)BRA) {
       item = readrest(gfun);
     } else if (item == (object *)QUO) {
-      item = cons(bsymbol(QUOTE), cons(read(gfun), NULL));
+      item = cons(bsymbol(QUOTE), cons(readobject(gfun), NULL));
     } else if (item == (object *)DOT) {
-      tail->cdr = read(gfun);
+      tail->cdr = readobject(gfun);
       if (readrest(gfun) != NULL) error2("malformed list");
       return head;
     } else {
@@ -6358,12 +6360,12 @@ object *readrest (gfun_t gfun) {
   return head;
 }
 
-object *read (gfun_t gfun) {
+object *readobject (gfun_t gfun) {
   object *item = nextitem(gfun);
   if (item == (object *)KET) error2("incomplete list");
   if (item == (object *)BRA) return readrest(gfun);
-  if (item == (object *)DOT) return read(gfun);
-  if (item == (object *)QUO) return cons(bsymbol(QUOTE), cons(read(gfun), NULL));
+  if (item == (object *)DOT) return readobject(gfun);
+  if (item == (object *)QUO) return cons(bsymbol(QUOTE), cons(readobject(gfun), NULL));
   return item;
 }
 
@@ -6408,7 +6410,7 @@ void repl (object *env) {
     }
     pserial('>'); pserial(' ');
     Context = NIL;
-    object *line = read(gserial);
+    object *line = readobject(gserial);
     if (BreakLevel && line == nil) { pln(pserial); return; }
     if (line == (object *)KET) error2("unmatched right bracket");
     protect(line);
@@ -6463,8 +6465,8 @@ int decode(int syn, int pfu){
 
 
 int init(){
-  #if SANDBOX == 1
   setup();
+  #if SANDBOX == 1
   for(int i=0;i<(sizeof(ulisp_declarations)/sizeof(ulisp_declarations[0]));i++){
     eval_cstr(ulisp_declarations[i]);
   }
@@ -6476,5 +6478,26 @@ int init(){
 }
 
 #if SANDBOX == 0
-void _start(){printf("def");while(1){}printf("abc");}
+
+#include <wasi/api.h>
+#include <unistd.h>
+extern void __wasm_call_ctors(void);
+void _start(){
+  __wasm_call_ctors();
+  //__wasilibc_initialize_environ();
+  puts("def");
+  init();
+  char output[100];
+  object* result=eval_cstr("12312");
+  cstring(eval_cstr("(princ-to-string (quote (+ 2 2)))"),output,100);
+  puts(output);
+  puts("from puts");
+  printf("from printf\n");
+  puts("type something:");
+  char buf[256];
+  int n = read(0, buf, 255);
+  printf("read ret=%d\n", n);
+  puts("echoing line:");
+  puts(buf);
+}
 #endif
