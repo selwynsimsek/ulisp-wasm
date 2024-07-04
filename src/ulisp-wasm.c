@@ -6463,9 +6463,18 @@ int decode(int syn, int pfu){
 
 
 int init(){
+  #if SANDBOX == 1
   setup();
   for(int i=0;i<(sizeof(ulisp_declarations)/sizeof(ulisp_declarations[0]));i++){
     eval_cstr(ulisp_declarations[i]);
   }
+  //printf("abc");
   return checkinteger(eval_cstr("(floor (exp 5))"));
+  #else
+  return 5;
+  #endif
 }
+
+#if SANDBOX == 0
+void _start(){printf("def");while(1){}printf("abc");}
+#endif
