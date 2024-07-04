@@ -4113,8 +4113,9 @@ object *fn_delay (object *args, object *env) {
   object *arg1 = first(args);
   unsigned long start = millis();
   unsigned long total = checkinteger(arg1);
-  do testescape();
-  while (millis() - start < total);
+  //do testescape();
+  //while (millis() - start < total);
+  puts("delay not supported on wasm");
   return arg1;
 }
 
